@@ -28,7 +28,7 @@ Ikuti langkah-langkah berikut untuk meng-clone dan menjalankan proyek ini di lin
 
 1. **Clone Repositori**
     ```bash
-    https://github.com/Rinn2/todolist.git
+    git clone https://github.com/Rinn2/todolist.git
     cd ToDoList-App
     ```
 
