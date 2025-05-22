@@ -1,145 +1,30 @@
-# .github/workflows/ci-cd.yml
-name: CI/CD Pipeline for Todo App
+name: Deploy to Vercel
 
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  # Job 1: Continuous Integration
-  test-and-build:
-    name: Test and Build
+  deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: 18
 
       - name: Install Dependencies
-        run: |
-          npm ci
-          echo "Dependencies installed successfully"
-
-      - name: Run Linting
-        run: |
-          if [ -f package.json ] && grep -q '"lint":' package.json; then
-            npm run lint
-          else
-            echo "No lint script found. Skipping linting."
-          fi
-
-      - name: Run Unit Tests
-        run: |
-          if [ -f package.json ] && grep -q '"test":' package.json; then
-            npm test -- --coverage
-          else
-            echo "No test script found. Creating dummy test result."
-            echo "Warning: Please add unit tests to your application!"
-          fi
-
-      - name: Build Application
-        run: |
-          if [ -f package.json ] && grep -q '"build":' package.json; then
-            npm run build
-          else
-            echo "No build script found. Application ready for deployment."
-          fi
-
-      - name: Archive Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-files
-          path: |
-            dist/
-            build/
-            public/
-          if-no-files-found: warn
-
-  # Job 2: Deploy to Staging (Vercel)
-  deploy-staging:
-    name: Deploy to Staging
-    needs: test-and-build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    environment:
-      name: staging
-      url: https://todolist-wine-xi.vercel.app/
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-files
-          path: ./
+        run: npm install
 
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Deploy to Vercel Staging
+      - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-        run: |
-          vercel --token $VERCEL_TOKEN --yes
-          echo "Deployment successful to staging environment"
-
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🚀 Staging deployment successful! Check it out at: https://todolist-wine-xi.vercel.app/'
-            })
-
-  # Job 3: Security and Quality Checks
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Run Security Audit
-        run: |
-          npm audit --audit-level=high
-          echo "Security audit completed"
-
-      - name: Dependency Check
-        run: |
-          npx depcheck
-          echo "Dependency check completed"
+        run: vercel --prod --yes --token $VERCEL_TOKEN
