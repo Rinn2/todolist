@@ -54,6 +54,41 @@ Ikuti langkah-langkah berikut untuk meng-clone dan menjalankan proyek ini di lin
 
 ---
 
+##  Penyimpanan Data 
+
+
+###  Fungsi Utama
+
+- **`loadStore()`**  
+  Memuat data dari `localStorage`. Jika data tidak ditemukan, fungsi ini akan mengembalikan data default.
+
+- **`saveStore()`**  
+  Menyimpan data terbaru (tugas dan kategori) ke dalam `localStorage` setiap kali terjadi perubahan.
+
+- **`reset()`**  
+  Menghapus seluruh data dari `localStorage` dan mengembalikan aplikasi ke kondisi awal.
+
+---
+
+### Alur Manajemen Data
+
+1. **Load Data saat Aplikasi Dibuka**  
+   Ketika aplikasi pertama kali dibuka, `loadStore()` dijalankan untuk mengambil data terakhir dari `localStorage`.
+
+2. **Manajemen State oleh Context API**  
+   Semua data tugas dan kategori dikelola melalui Context API yang berada di file `taskContext.tsx`.  
+   Saat pengguna menambah, mengedit, atau menghapus tugas/kategori, data diperbarui melalui context.
+
+3. **Penyimpanan Otomatis**  
+   Setelah data berubah, `saveStore()` akan dipanggil secara otomatis untuk menyimpan perubahan ke `localStorage`.
+
+4. **Reset Data**  
+   Pengguna dapat menghapus seluruh data melalui menu **Settings**. Tindakan ini akan memanggil `reset()` untuk mengembalikan aplikasi ke kondisi default.
+---
+## Demo Aplikasi
+ 
+    todolist-wine-xi.vercel.app/
+---
 ##  Struktur Folder
 
 ```bash
