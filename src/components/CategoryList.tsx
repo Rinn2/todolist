@@ -5,15 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useTaskContext } from "@/context/TaskContext";
-import { Category } from "@/lib/types";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import { Category, Task } from "@/lib/types";
+import { Edit, Plus, Trash2, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const CategoryList: React.FC = () => {
-  const { categories, addCategory, updateCategory, deleteCategory, statistics } = useTaskContext();
+  const { categories, tasks, addCategory, updateCategory, deleteCategory, updateTask, deleteTask, statistics } = useTaskContext();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [categoryToEdit, setCategoryToEdit] = useState<Category | undefined>(undefined);
   const [formData, setFormData] = useState({ name: "", color: "#9b87f5" });
+  const [openCategoryIds, setOpenCategoryIds] = useState<string[]>([]);
 
   const handleAddCategory = () => {
     setCategoryToEdit(undefined);
@@ -59,6 +63,59 @@ const CategoryList: React.FC = () => {
     return statistics.byCategory[categoryId] || 0;
   };
 
+  const handleCategoryClick = (categoryId: string) => {
+    setOpenCategoryIds(prev => {
+      if (prev.includes(categoryId)) {
+        // If already open, close it
+        return prev.filter(id => id !== categoryId);
+      } else {
+        // If closed, open it
+        return [...prev, categoryId];
+      }
+    });
+  };
+
+  const getTasksForCategory = (categoryId: string) => {
+    return tasks.filter(task => task.categoryId === categoryId);
+  };
+
+  const handleMarkAsDone = (task: Task) => {
+    updateTask({
+      ...task,
+      status: "done",
+    });
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    deleteTask(taskId);
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "not-started":
+        return "Not Started";
+      case "in-progress":
+        return "In Progress";
+      case "done":
+        return "Done";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    switch (priority) {
+      case "low":
+        return "Low";
+      case "medium":
+        return "Medium";
+      case "high":
+        return "High";
+      default:
+        return "Unknown";
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -69,50 +126,130 @@ const CategoryList: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.length === 0 ? (
-          <div className="col-span-full text-center py-8">
-            <p className="text-muted-foreground">No categories found. Add your first category!</p>
-          </div>
-        ) : (
-          categories.map((category) => (
-            <Card key={category.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center">
-                  <span 
-                    className="w-3 h-3 rounded-full mr-2" 
-                    style={{ backgroundColor: category.color }}
-                  ></span>
-                  {category.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-2">
-                <p className="text-sm text-muted-foreground">
-                  {getTaskCount(category.id)} tasks in this category
-                </p>
-              </CardContent>
-              <CardFooter className="pt-2 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditCategory(category)}
-                  title="Edit Category"
-                >
-                  <Edit size={18} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteCategory(category.id)}
-                  title="Delete Category"
-                >
-                  <Trash2 size={18} />
-                </Button>
-              </CardFooter>
-            </Card>
-          ))
-        )}
-      </div>
+      {categories.length === 0 ? (
+        <div className="col-span-full text-center py-8">
+          <p className="text-muted-foreground">No categories found. Add your first category!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {categories.map((category) => (
+            <Accordion 
+              key={category.id} 
+              type="single" 
+              collapsible
+              value={openCategoryIds.includes(category.id) ? category.id : undefined}
+              onValueChange={(value) => {
+                if (value) {
+                  setOpenCategoryIds(prev => [...prev.filter(id => id !== category.id), category.id]);
+                } else {
+                  setOpenCategoryIds(prev => prev.filter(id => id !== category.id));
+                }
+              }}
+              className="w-full"
+            >
+              <AccordionItem value={category.id} className="border rounded-md hover:shadow-md transition-all duration-200">
+                <div className="flex justify-between items-center">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <div className="flex items-center">
+                      <span 
+                        className="w-3 h-3 rounded-full mr-2" 
+                        style={{ backgroundColor: category.color }}
+                      ></span>
+                      <span className="font-medium">{category.name}</span>
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({getTaskCount(category.id)} tasks)
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <div className="px-4 flex">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditCategory(category);
+                      }}
+                      title="Edit Category"
+                    >
+                      <Edit size={18} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(category.id);
+                      }}
+                      title="Delete Category"
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                  </div>
+                </div>
+                <AccordionContent className="px-4 pb-4">
+                  <div className="space-y-3 pt-2">
+                    {getTasksForCategory(category.id).length > 0 ? (
+                      getTasksForCategory(category.id).map((task) => (
+                        <Card key={task.id} className="fade-in">
+                          <CardHeader className="py-3 px-4">
+                            <div className="flex justify-between items-start">
+                              <CardTitle className="text-base">{task.title}</CardTitle>
+                              <div className="flex space-x-1">
+                                <Badge className={`status-${task.status}`}>
+                                  {getStatusLabel(task.status)}
+                                </Badge>
+                                <Badge className={`priority-${task.priority}`}>
+                                  {getPriorityLabel(task.priority)}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          
+                          {task.description && (
+                            <CardContent className="py-1 px-4">
+                              <p className="text-sm text-muted-foreground">{task.description}</p>
+                            </CardContent>
+                          )}
+                          
+                          <CardFooter className="py-2 px-4 flex justify-between">
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(task.updatedAt).toLocaleString()}
+                            </div>
+                            <div className="flex space-x-2">
+                              {task.status !== "done" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleMarkAsDone(task)}
+                                  title="Mark as Done"
+                                >
+                                  <CheckCircle size={16} />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteTask(task.id)}
+                                title="Delete Task"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </CardFooter>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-muted-foreground">Tidak ada tugas dalam kategori ini.</p>
+                      </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          ))}
+        </div>
+      )}
 
       <Dialog open={isFormOpen} onOpenChange={handleCloseForm}>
         <DialogContent>

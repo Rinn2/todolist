@@ -13,13 +13,19 @@ import { Task } from "@/lib/types";
 import { useTaskContext } from "@/context/TaskContext";
 import TaskItem from "./TaskItem";
 import TaskForm from "./TaskForm";
-import { Plus, Filter, Search } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Plus, Filter, Search, ArrowLeft } from "lucide-react";
 
 const TaskList: React.FC = () => {
   const { filteredTasks, filters, setFilters, categories, sortBy, setSortBy } = useTaskContext();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Find the active category name if a category filter is applied
+  const activeCategoryName = filters.categoryId 
+    ? categories.find(cat => cat.id === filters.categoryId)?.name 
+    : null;
 
   const handleAddTask = () => {
     setTaskToEdit(undefined);
@@ -60,16 +66,46 @@ const TaskList: React.FC = () => {
     setShowFilters(!showFilters);
   };
 
+  const clearCategoryFilter = () => {
+    setFilters({ categoryId: null });
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ 
+      status: null, 
+      priority: null, 
+      categoryId: null, 
+      searchTerm: '' 
+    });
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
         <div className="flex items-center w-full sm:w-auto">
-          <Input
-            placeholder="Search tasks..."
-            value={filters.searchTerm}
-            onChange={handleSearchChange}
-            className="max-w-xs"
-          />
+          {activeCategoryName ? (
+            <div className="flex items-center mr-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={clearCategoryFilter}
+                className="flex items-center text-sm"
+              >
+                <ArrowLeft size={16} className="mr-1" />
+                <span>All Tasks</span>
+              </Button>
+              <span className="text-sm font-medium ml-2">
+                Category: <span className="text-primary">{activeCategoryName}</span>
+              </span>
+            </div>
+          ) : (
+            <Input
+              placeholder="Search tasks..."
+              value={filters.searchTerm}
+              onChange={handleSearchChange}
+              className="max-w-xs"
+            />
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -150,30 +186,26 @@ const TaskList: React.FC = () => {
         </div>
       )}
 
-      <div className="space-y-4">
-        {filteredTasks.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-muted-foreground">No tasks found.</p>
-            {(filters.status || filters.priority || filters.categoryId || filters.searchTerm) && (
-              <Button 
-                variant="link" 
-                onClick={() => setFilters({ 
-                  status: null, 
-                  priority: null, 
-                  categoryId: null, 
-                  searchTerm: '' 
-                })}
-              >
-                Clear filters
-              </Button>
-            )}
-          </div>
-        ) : (
-          filteredTasks.map((task) => (
+      {filteredTasks.length === 0 ? (
+        <EmptyState 
+          title={activeCategoryName ? "No tasks in this category" : "No tasks found"}
+          description={activeCategoryName 
+            ? "There are no tasks in this category yet."
+            : "Try adjusting your filters or add a new task."
+          }
+          action={(filters.status || filters.priority || filters.categoryId || filters.searchTerm) ? {
+            label: "Clear filters",
+            onClick: handleClearFilters
+          } : undefined}
+          className="py-12"
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredTasks.map((task) => (
             <TaskItem key={task.id} task={task} onEdit={handleEditTask} />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       <TaskForm
         isOpen={isFormOpen}

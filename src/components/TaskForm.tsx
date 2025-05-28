@@ -13,8 +13,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Task, TaskPriority, TaskStatus } from "@/lib/types";
 import { useTaskContext } from "@/context/TaskContext";
+import { toast } from "sonner";
 
 interface TaskFormProps {
   isOpen: boolean;
@@ -28,11 +38,16 @@ const initialTask = {
   status: "not-started" as TaskStatus,
   priority: "medium" as TaskPriority,
   categoryId: null,
+  startDate: null,
+  dueDate: null,
 };
 
 const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, taskToEdit }) => {
   const { addTask, updateTask, categories } = useTaskContext();
   const [formData, setFormData] = useState(initialTask);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (taskToEdit) {
@@ -42,10 +57,27 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, taskToEdit }) => {
         status: taskToEdit.status,
         priority: taskToEdit.priority,
         categoryId: taskToEdit.categoryId,
+        startDate: taskToEdit.startDate,
+        dueDate: taskToEdit.dueDate,
       });
+      
+      if (taskToEdit.startDate) {
+        setStartDate(new Date(taskToEdit.startDate));
+      } else {
+        setStartDate(undefined);
+      }
+      
+      if (taskToEdit.dueDate) {
+        setDueDate(new Date(taskToEdit.dueDate));
+      } else {
+        setDueDate(undefined);
+      }
     } else {
       setFormData(initialTask);
+      setStartDate(undefined);
+      setDueDate(undefined);
     }
+    setDateError(null);
   }, [taskToEdit, isOpen]);
 
   const handleChange = (
@@ -70,16 +102,58 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, taskToEdit }) => {
     }));
   };
 
+  const handleStartDateChange = (date: Date | undefined) => {
+    setStartDate(date);
+    setFormData(prev => ({
+      ...prev,
+      startDate: date ? date.toISOString() : null
+    }));
+    
+    // Validate against due date if it exists
+    if (date && dueDate && date > dueDate) {
+      setDateError("Tanggal jatuh tempo tidak boleh lebih awal dari tanggal mulai.");
+    } else {
+      setDateError(null);
+    }
+  };
+
+  const handleDueDateChange = (date: Date | undefined) => {
+    setDueDate(date);
+    setFormData(prev => ({
+      ...prev,
+      dueDate: date ? date.toISOString() : null
+    }));
+    
+    // Validate against start date if it exists
+    if (date && startDate && date < startDate) {
+      setDateError("Tanggal jatuh tempo tidak boleh lebih awal dari tanggal mulai.");
+    } else {
+      setDateError(null);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate dates once more before submission
+    if (startDate && dueDate && startDate > dueDate) {
+      setDateError("Tanggal jatuh tempo tidak boleh lebih awal dari tanggal mulai.");
+      return;
+    }
+    
+    // If only due date is provided, set start date to today
+    let finalFormData = {...formData};
+    if (!finalFormData.startDate && finalFormData.dueDate) {
+      finalFormData.startDate = new Date().toISOString();
+    }
     
     if (taskToEdit) {
       updateTask({
         ...taskToEdit,
-        ...formData,
+        ...finalFormData,
       });
     } else {
-      addTask(formData);
+      addTask(finalFormData);
     }
     
     onClose();
@@ -116,6 +190,70 @@ const TaskForm: React.FC<TaskFormProps> = ({ isOpen, onClose, taskToEdit }) => {
               rows={3}
             />
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Tanggal Awal</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="startDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "dd/MM/yyyy") : <span>Pilih tanggal mulai</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={handleStartDateChange}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Tanggal Jatuh Tempo</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="dueDate"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>Pilih tanggal jatuh tempo</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dueDate}
+                    onSelect={handleDueDateChange}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          
+          {dateError && (
+            <div className="text-sm font-medium text-destructive">
+              {dateError}
+            </div>
+          )}
           
           <div className="space-y-2">
             <Label>Status</Label>
